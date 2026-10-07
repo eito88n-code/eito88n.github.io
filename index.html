@@ -60,62 +60,68 @@ button{font:inherit;cursor:pointer}.actions button{padding:8px 13px;border-radiu
   map.setMaxBounds(bounds.pad(.15));
   map.on('drag', () => map.panInsideBounds(bounds.pad(.15), {animate:false}));
 
-  const storageKey = 'chiba-simple-map-memos-v1';
-  const markers = new Map();
+  const SUPABASE_URL = 'https://doedhlcsjgmzvvizeeyh.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_94pU4x1uHjgsMC1SMCIDBA_1ak7fOh6';
+const markers = new Map();
   let selectedLatLng = null;
   const modal = document.getElementById('modal');
   const input = document.getElementById('memoInput');
   const coords = document.getElementById('coords');
 
-  function loadMemos() {
-    try { return JSON.parse(localStorage.getItem(storageKey) || '[]'); }
-    catch (_) { return []; }
-  }
-  function saveMemos(items) {
-    try { localStorage.setItem(storageKey, JSON.stringify(items)); }
-    catch (_) { alert('このブラウザでは保存できませんでした。'); }
-  }
-  function openEditor(latlng) {
-    selectedLatLng = latlng;
-    coords.textContent = `緯度 ${latlng.lat.toFixed(5)} / 経度 ${latlng.lng.toFixed(5)}`;
-    input.value = '';
-    modal.style.display = 'flex';
-    setTimeout(() => input.focus(), 0);
-  }
-  function closeEditor() { modal.style.display = 'none'; selectedLatLng = null; }
-  function renderMemo(memo) {
-    const marker = L.marker([memo.lat, memo.lng]).addTo(map);
-    const wrapper = document.createElement('div');
-    const text = document.createElement('div');
-    text.className = 'memo-text';
-    text.textContent = memo.text;
-    const date = document.createElement('small');
-    date.textContent = new Date(memo.createdAt).toLocaleString('ja-JP');
-    const actions = document.createElement('div');
-    actions.className = 'popup-actions';
-    const edit = document.createElement('button');
-    edit.textContent = '編集';
-    edit.addEventListener('click', () => {
-      closeEditor();
-      openEditor({lat:memo.lat,lng:memo.lng});
-      input.value = memo.text;
-      document.getElementById('save').dataset.editId = memo.id;
-    });
-    const del = document.createElement('button');
-    del.textContent = '削除';
-    del.addEventListener('click', () => {
-      if (!confirm('このメモを削除しますか？')) return;
-      const updated = loadMemos().filter(x => x.id !== memo.id);
-      saveMemos(updated);
-      marker.remove(); markers.delete(memo.id);
-    });
-    actions.append(edit,del);
-    wrapper.append(text,date,document.createElement('br'),actions);
-    marker.bindPopup(wrapper);
-    markers.set(memo.id, marker);
-  }
-  loadMemos().forEach(renderMemo);
+  async function loadMemos() {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/memos?select=id,created_at,latitude,longitude,text&order=created_at.asc`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY
+      }
+    }
+  );
 
+  if (!res.ok) {
+    console.error('メモの読み込みに失敗しました', await res.text());
+    return [];
+  }
+
+  return await res.json();
+}
+
+function openEditor(latlng) {
+  selectedLatLng = latlng;
+  coords.textContent =
+    `緯度 ${latlng.lat.toFixed(5)} / 経度 ${latlng.lng.toFixed(5)}`;
+  input.value = '';
+  modal.style.display = 'flex';
+  setTimeout(() => input.focus(), 0);
+}
+
+function closeEditor() {
+  modal.style.display = 'none';
+  selectedLatLng = null;
+}
+
+function renderMemo(memo) {
+  const marker = L.marker([memo.latitude, memo.longitude]).addTo(map);
+
+  const wrapper = document.createElement('div');
+
+  const text = document.createElement('div');
+  text.className = 'memo-text';
+  text.textContent = memo.text;
+
+  const date = document.createElement('small');
+  date.textContent =
+    new Date(memo.created_at).toLocaleString('ja-JP');
+
+  wrapper.append(text, date);
+
+  marker.bindPopup(wrapper);
+  markers.set(memo.id, marker);
+}
+
+loadMemos().then(items => {
+  items.forEach(renderMemo);
+});
   // 長押し操作。タッチでは約550ms、マウスでは右クリックでも追加可能。
   let pressTimer = null, startPoint = null, didLongPress = false;
   map.on('mousedown touchstart', (e) => {
@@ -138,29 +144,47 @@ button{font:inherit;cursor:pointer}.actions button{padding:8px 13px;border-radiu
     delete document.getElementById('save').dataset.editId;
     closeEditor();
   });
-  document.getElementById('save').addEventListener('click', () => {
-    const text = input.value.trim();
-    if (!text) { alert('メモを入力してください。'); return; }
-    const saveButton = document.getElementById('save');
-    const editId = saveButton.dataset.editId;
-    let items = loadMemos();
-    if (editId) {
-      items = items.map(x => x.id === editId ? {...x,text} : x);
-      const old = markers.get(editId);
-      if (old) { old.remove(); markers.delete(editId); }
-      delete saveButton.dataset.editId;
-    } else {
-      items.push({
-        id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()),
-        lat:selectedLatLng.lat, lng:selectedLatLng.lng, text, createdAt:Date.now()
-      });
+  document.getElementById('save').addEventListener('click', async () => {
+  const text = input.value.trim();
+
+  if (!text) {
+    alert('メモを入力してください。');
+    return;
+  }
+
+  if (!selectedLatLng) {
+    return;
+  }
+
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/memos`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation'
+      },
+      body: JSON.stringify({
+        latitude: selectedLatLng.lat,
+        longitude: selectedLatLng.lng,
+        text: text
+      })
     }
-    saveMemos(items);
-    markers.clear();
-    map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-    items.forEach(renderMemo);
-    closeEditor();
-  });
+  );
+
+  if (!res.ok) {
+    console.error('メモの保存に失敗しました', await res.text());
+    alert('メモの保存に失敗しました。');
+    return;
+  }
+
+  const saved = await res.json();
+
+  saved.forEach(renderMemo);
+
+  closeEditor();
+});
   modal.addEventListener('click', e => { if (e.target === modal) closeEditor(); });
 })();
 </script>

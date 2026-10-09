@@ -173,12 +173,13 @@ loadMemos().then(items => {
     }
   );
 
-  if (!res.ok) {
-    console.error('メモの保存に失敗しました', await res.text());
-    alert('メモの保存に失敗しました。');
-    return;
-  }
-
+  
+if (!res.ok) {
+  const errorText = await res.text();
+  console.error('Supabase保存エラー:', res.status, errorText);
+  alert('保存失敗 (' + res.status + '): ' + errorText);
+  return;
+}
   const saved = await res.json();
 
   saved.forEach(renderMemo);

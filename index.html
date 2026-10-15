@@ -64,7 +64,11 @@ button{font:inherit;cursor:pointer}.actions button{padding:8px 13px;border-radiu
 
   const SUPABASE_URL = 'https://mylppqjheqdgqxmdypni.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_94pU4x1uHjgsMC1SMCIDBA_1ak7fOh6';
-const markers = new Map();
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+ const markers = new Map();
   let selectedLatLng = null;
   const modal = document.getElementById('modal');
   const input = document.getElementById('memoInput');

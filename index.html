@@ -27,7 +27,17 @@ button{font:inherit;cursor:pointer}.actions button{padding:8px 13px;border-radiu
 </style>
 </head>
 <body>
-<header>
+
+<div id="auth-area" style="padding: 12px; background: #f3f4f6;">
+  <h2>アカウント</h2>
+  <input id="auth-email" type="email" placeholder="メールアドレス">
+  <input id="auth-password" type="password" placeholder="パスワード">
+  <button id="signup-button">新規登録</button>
+  <button id="login-button">ログイン</button>
+  <button id="logout-button" hidden>ログアウト</button>
+  <p id="auth-message"></p>
+</div>
+ <header>
   <div><h1>千葉市シンプルマップ＋メモ</h1><div class="sub">地図を長押しして、場所にメモを追加</div></div>
   <div class="hint">マーカーをタップするとメモを確認できます</div>
 </header>

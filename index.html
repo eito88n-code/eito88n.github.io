@@ -74,15 +74,36 @@ button{font:inherit;cursor:pointer}.actions button{padding:8px 13px;border-radiu
 
   const SUPABASE_URL = 'https://mylppqjheqdgqxmdypni.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_94pU4x1uHjgsMC1SMCIDBA_1ak7fOh6';
-const supabaseClient = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
+
 
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_KEY
 );
+async function initializeAnonymousUser() {
+const { data: { session } } = await supabaseClient.auth.getSession();
+
+if (session) {
+return session.user;
+}
+
+const { data, error } = await supabaseClient.auth.signInAnonymously();
+
+if (error) {
+console.error('匿名ログインに失敗しました:', error.message);
+alert('匿名ログインに失敗しました。ページを再読み込みしてください。');
+return null;
+}
+
+return data.user;
+}
+
+let currentUser = null;
+
+initializeAnonymousUser().then(user => {
+currentUser = user;
+});
+
  const markers = new Map();
   let selectedLatLng = null;
   const modal = document.getElementById('modal');
@@ -172,6 +193,10 @@ loadMemos().then(items => {
     alert('メモを入力してください。');
     return;
   }
+if (!currentUser) {
+alert('ログインの準備中です。少し待ってから、もう一度保存してください。');
+return;
+}
 
   if (!selectedLatLng) {
     return;
@@ -187,10 +212,12 @@ loadMemos().then(items => {
         Prefer: 'return=representation'
       },
       body: JSON.stringify({
-        latitude: selectedLatLng.lat,
-        longitude: selectedLatLng.lng,
-        text: text
-      })
+latitude: selectedLatLng.lat,
+longitude: selectedLatLng.lng,
+text: text,
+owner_id: currentUser?.id
+})
+
     }
   );
 
